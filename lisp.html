@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lisp REPL · Wesley</title>
+<style>
+:root{
+  --bg:#0a0e12;--surface:#0f1923;--border:#1e293b;
+  --text:#cbd5e1;--muted:#475569;--accent:#2dd4bf;
+  --kw:#c792ea;--num:#f78c6c;--str:#c3e88d;
+  --bool:#ff9cac;--cmt:#546e7a;--sym:#82aaff;--paren:#8892a4;
+  --err:#f87171;--ok:#86efac;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);
+  font-family:'JetBrains Mono','Fira Code','Courier New',monospace;
+  display:flex;flex-direction:column;height:100vh;font-size:14px}
+
+/* Header */
+header{padding:.5rem 1.2rem;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:.8rem;background:var(--surface);flex-shrink:0}
+header h1{font-size:1rem;color:var(--accent);letter-spacing:.05em}
+header .sub{font-size:.68rem;color:var(--muted)}
+header nav{margin-left:auto;display:flex;gap:1rem}
+header nav a{color:var(--muted);text-decoration:none;font-size:.72rem}
+header nav a:hover{color:var(--accent)}
+
+/* Main layout */
+#main{flex:1;display:flex;overflow:hidden;min-height:0}
+
+/* Left: REPL */
+#repl{flex:1;display:flex;flex-direction:column;min-width:0;border-right:1px solid var(--border)}
+
+/* Output */
+#output{flex:1;overflow-y:auto;padding:.8rem 1rem;display:flex;flex-direction:column;gap:.15rem}
+#output:empty::after{content:'Wesley\'s Lisp  ·  type an expression and press Enter\a(help) for examples  ·  ↑↓ for history';
+  white-space:pre;color:var(--muted);font-size:.8rem;padding:.4rem 0}
+
+.entry{display:flex;flex-direction:column;gap:.1rem;margin-bottom:.25rem}
+.entry-in{color:var(--muted);font-size:.78rem}
+.entry-in::before{content:'lisp> ';color:var(--accent)}
+.entry-out{padding-left:1.5rem;font-size:.82rem}
+.entry-out.ok{color:var(--text)}
+.entry-out.err{color:var(--err)}
+.entry-out.print{color:var(--ok);font-style:italic}
+.entry-empty{color:var(--muted);font-size:.78rem;padding-left:1.5rem}
+
+/* Syntax highlight spans in output */
+.h-kw{color:var(--kw)} .h-num{color:var(--num)} .h-str{color:var(--str)}
+.h-bool{color:var(--bool)} .h-cmt{color:var(--cmt)}
+.h-sym{color:var(--sym)} .h-paren{color:var(--paren)}
+
+/* Input area */
+#input-area{border-top:1px solid var(--border);background:var(--surface);padding:.6rem .8rem;flex-shrink:0}
+#input-row{display:flex;align-items:flex-start;gap:.5rem}
+.prompt{color:var(--accent);padding-top:.2rem;flex-shrink:0;font-size:.85rem}
+#input{flex:1;background:transparent;border:none;outline:none;resize:none;
+  color:var(--text);font:inherit;font-size:.85rem;min-height:1.4rem;max-height:10rem;
+  overflow-y:auto;line-height:1.5;caret-color:var(--accent)}
+#input::placeholder{color:var(--muted)}
+#hint{font-size:.62rem;color:var(--muted);margin-top:.3rem;padding-left:2rem}
+
+/* Right: sidebar */
+#sidebar{width:320px;flex-shrink:0;display:flex;flex-direction:column;overflow:hidden}
+#sidebar-tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0}
+.tab{flex:1;padding:.45rem;text-align:center;font-size:.7rem;cursor:pointer;
+  color:var(--muted);border-bottom:2px solid transparent;transition:.1s;text-transform:uppercase;
+  letter-spacing:.06em}
+.tab:hover{color:var(--text)}
+.tab.on{color:var(--accent);border-bottom-color:var(--accent)}
+#panels{flex:1;overflow:hidden;position:relative}
+.panel{position:absolute;inset:0;overflow-y:auto;padding:.7rem;display:none;flex-direction:column;gap:.4rem}
+.panel.on{display:flex}
+
+/* Example buttons */
+.ex{background:var(--bg);border:1px solid var(--border);border-radius:3px;
+  padding:.5rem .7rem;cursor:pointer;text-align:left;width:100%;
+  font:inherit;font-size:.72rem;color:var(--text);transition:.1s;line-height:1.4}
+.ex:hover{border-color:var(--accent);color:var(--accent)}
+.ex-title{color:var(--accent);font-size:.7rem;font-weight:700;margin-bottom:.1rem}
+.ex-code{color:var(--muted);font-size:.68rem;margin-top:.2rem;white-space:pre}
+
+/* Reference table */
+.ref-section{margin-bottom:.6rem}
+.ref-title{font-size:.65rem;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--muted);margin-bottom:.25rem;padding-bottom:.15rem;border-bottom:1px solid var(--border)}
+.ref-item{display:flex;gap:.5rem;padding:.15rem 0;font-size:.7rem;
+  border-bottom:1px solid #0f1923}
+.ref-item code{color:var(--accent);min-width:130px;flex-shrink:0}
+.ref-item span{color:var(--muted);font-size:.66rem}
+
+/* Toolbar */
+#toolbar{display:flex;gap:.4rem;padding:.4rem .8rem;border-top:1px solid var(--border);
+  background:var(--surface);flex-shrink:0}
+button{padding:.25rem .6rem;border:1px solid var(--border);border-radius:3px;
+  background:var(--bg);color:var(--text);font-size:.72rem;cursor:pointer;
+  font-family:inherit;transition:.1s;white-space:nowrap}
+button:hover{border-color:var(--accent);color:var(--accent)}
+#btn-run{border-color:var(--accent);color:var(--accent)}
+#btn-run:hover{background:var(--accent);color:var(--bg)}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>λ LISP</h1>
+  <span class="sub">Scheme-ish · tokenizer → parser → evaluator · from scratch · no libraries</span>
+  <nav>
+    <a href="/">Blog</a>
+    <a href="/projects/">Projects</a>
+    <a href="/about/">About</a>
+  </nav>
+</header>
+
+<div id="main">
+  <!-- REPL column -->
+  <div id="repl">
+    <div id="output"></div>
+    <div id="input-area">
+      <div id="input-row">
+        <span class="prompt">λ&gt;</span>
+        <textarea id="input" rows="1" placeholder="(+ 1 2)" spellcheck="false" autocomplete="off" autocorrect="off"></textarea>
+      </div>
+      <div id="hint">Enter = eval &nbsp;·&nbsp; Shift+Enter = newline &nbsp;·&nbsp; ↑↓ = history &nbsp;·&nbsp; Ctrl+L = clear</div>
+    </div>
+    <div id="toolbar">
+      <button id="btn-run" onclick="evalInput()">▶ Run</button>
+      <button onclick="clearOutput()">Clear</button>
+      <button onclick="resetEnv()">Reset Env</button>
+      <button onclick="loadExample('factorial')">Factorial</button>
+      <button onclick="loadExample('fib')">Fibonacci</button>
+      <button onclick="loadExample('closure')">Closure</button>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div id="sidebar-tabs">
+      <div class="tab on"  onclick="switchTab('examples')">Examples</div>
+      <div class="tab"     onclick="switchTab('reference')">Reference</div>
+    </div>
+    <div id="panels">
+      <div class="panel on" id="panel-examples"></div>
+      <div class="panel"    id="panel-reference"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════════════════
+//  TYPES
+// ═══════════════════════════════════════════════════════════
+
+class Sym {
+  constructor(s) { this.s = s; }
+  toString() { return this.s; }
+}
+// Intern symbols
+const _symCache = new Map();
+function sym(s) {
+  if (_symCache.has(s)) return _symCache.get(s);
+  const o = new Sym(s); _symCache.set(s, o); return o;
+}
+
+class LispStr {
+  constructor(s) { this.s = s; }
+  toString() { return `"${this.s.replace(/\\/g,'\\\\').replace(/"/g,'\\"').replace(/\n/g,'\\n').replace(/\t/g,'\\t')}"` }
+}
+
+class Lambda {
+  constructor(params, body, env, name=null) {
+    this.params=params; this.body=body; this.env=env; this.name=name;
+  }
+  toString() { return `#<lambda ${this.name||''}>`; }
+}
+
+class Env {
+  constructor(params=[], args=[], outer=null) {
+    this.d=Object.create(null); this.outer=outer;
+    if (typeof params === 'object' && !(params instanceof Array)) {
+      // single rest-arg symbol: (lambda args body)
+      this.d[params.s] = Array.from(args);
+    } else {
+      for (let i=0; i<params.length; i++) {
+        if (params[i] instanceof Sym && params[i].s === '.') {
+          this.d[params[i+1].s] = Array.from(args).slice(i); break;
+        }
+        this.d[params[i] instanceof Sym ? params[i].s : String(params[i])] = args[i];
+      }
+    }
+  }
+  lookup(name) {
+    if (name in this.d) return this.d[name];
+    if (this.outer)     return this.outer.lookup(name);
+    throw new LispError(`Undefined symbol: '${name}'`);
+  }
+  define(name, val) { this.d[name] = val; }
+  set(name, val) {
+    if (name in this.d) { this.d[name]=val; return; }
+    if (this.outer)     { this.outer.set(name,val); return; }
+    throw new LispError(`set!: unbound variable '${name}'`);
+  }
+}
+
+const NIL = Object.freeze([]);
+const isNil = x => x === NIL || (Array.isArray(x) && x.length===0);
+
+class LispError extends Error {}
+
+// ═══════════════════════════════════════════════════════════
+//  TOKENIZER
+// ═══════════════════════════════════════════════════════════
+
+function tokenize(src) {
+  const toks=[]; let i=0, line=1, col=1, n=src.length;
+  while (i<n) {
+    let c=src[i], tl=line, tc=col;
+    if (' \t\r\n'.includes(c)) {
+      if (c==='\n'){line++;col=1;}else col++;
+      i++; continue;
+    }
+    if (c===';') {
+      while (i<n && src[i]!=='\n'){i++;col++;} continue;
+    }
+    if (c==='(') { toks.push({k:'LP',v:'(',l:tl,c:tc}); i++;col++; continue; }
+    if (c===')') { toks.push({k:'RP',v:')',l:tl,c:tc}); i++;col++; continue; }
+    if (c==="'") { toks.push({k:'QT',v:"'",l:tl,c:tc}); i++;col++; continue; }
+    if (c==='`') { toks.push({k:'QQ',v:'`',l:tl,c:tc}); i++;col++; continue; }
+    if (c===',') {
+      if (i+1<n && src[i+1]==='@') {
+        toks.push({k:'SP',v:',@',l:tl,c:tc}); i+=2;col+=2;
+      } else {
+        toks.push({k:'UQ',v:',',l:tl,c:tc}); i++;col++;
+      }
+      continue;
+    }
+    if (c==='"') {
+      i++;col++; let buf='';
+      while (i<n && src[i]!=='"') {
+        let ch=src[i];i++;col++;
+        if (ch==='\n'){line++;col=1;}
+        if (ch==='\\' && i<n) {
+          let esc=src[i];i++;col++;
+          buf+={'n':'\n','t':'\t','r':'\r','\\':'\\','"':'"','0':'\0'}[esc]??esc;
+        } else buf+=ch;
+      }
+      if (i>=n) throw new LispError(`Unterminated string at ${tl}:${tc}`);
+      i++;col++;
+      toks.push({k:'STR',v:buf,l:tl,c:tc}); continue;
+    }
+    let buf='';
+    while (i<n && !' \t\r\n();\'"`,'.includes(src[i])) { buf+=src[i];i++;col++; }
+    if (!buf) throw new LispError(`Unexpected char '${c}' at ${tl}:${tc}`);
+    const isNum = /^-?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(buf);
+    toks.push({k: isNum?'NUM':'SYM', v:buf, l:tl, c:tc});
+  }
+  return toks;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PARSER
+// ═══════════════════════════════════════════════════════════
+
+function parse(src) {
+  const toks=tokenize(src); let pos=0; const out=[];
+  while (pos<toks.length) {
+    const [e,p]=expr(toks,pos); out.push(e); pos=p;
+  }
+  return out;
+}
+
+function expr(toks, pos) {
+  if (pos>=toks.length) throw new LispError('Unexpected end of input');
+  const t=toks[pos++];
+  if (t.k==='NUM') {
+    const v=t.v;
+    return [(/[.e]/i.test(v)?parseFloat(v):parseInt(v,10)), pos];
+  }
+  if (t.k==='STR') return [new LispStr(t.v), pos];
+  if (t.k==='SYM') {
+    if (t.v==='#t'||t.v==='#true')  return [true, pos];
+    if (t.v==='#f'||t.v==='#false') return [false, pos];
+    if (t.v==='nil'||t.v==='()')    return [NIL, pos];
+    return [sym(t.v), pos];
+  }
+  if (t.k==='QT') { const [e,p]=expr(toks,pos); return [[sym('quote'),e],p]; }
+  if (t.k==='QQ') { const [e,p]=expr(toks,pos); return [[sym('quasiquote'),e],p]; }
+  if (t.k==='UQ') { const [e,p]=expr(toks,pos); return [[sym('unquote'),e],p]; }
+  if (t.k==='SP') { const [e,p]=expr(toks,pos); return [[sym('unquote-splicing'),e],p]; }
+  if (t.k==='LP') {
+    const items=[]; let p=pos;
+    while (p<toks.length && toks[p].k!=='RP') {
+      const [e,np]=expr(toks,p); items.push(e); p=np;
+    }
+    if (p>=toks.length) throw new LispError(`Missing ) to match ( at ${t.l}:${t.c}`);
+    return [items, p+1];
+  }
+  if (t.k==='RP') throw new LispError(`Unexpected ) at ${t.l}:${t.c}`);
+  throw new LispError(`Unknown token ${t.k}`);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  EVALUATOR  — iterative TCO via while loop
+// ═══════════════════════════════════════════════════════════
+
+function evaluate(initExpr, initEnv) {
+  let expr=initExpr, env=initEnv;
+  while (true) {
+    // Self-evaluating
+    if (typeof expr==='number'||typeof expr==='boolean'||expr instanceof LispStr) return expr;
+    if (isNil(expr)) return NIL;
+    // Symbol lookup
+    if (expr instanceof Sym) return env.lookup(expr.s);
+    // Not a list: return as-is
+    if (!Array.isArray(expr)||expr.length===0) return expr;
+
+    const head=expr[0];
+
+    // ── Special forms ──────────────────────────────────
+    if (head instanceof Sym) {
+      const sf=head.s;
+
+      if (sf==='quote') return expr[1];
+
+      if (sf==='if') {
+        const test=evaluate(expr[1],env);
+        expr = (test!==false&&!isNil(test)) ? expr[2] : (expr[3]??NIL);
+        continue;
+      }
+
+      if (sf==='cond') {
+        let matched=false;
+        for (const clause of expr.slice(1)) {
+          const [tst,...body]=clause;
+          const isElse=tst instanceof Sym && tst.s==='else';
+          const val=isElse?true:evaluate(tst,env);
+          if (val!==false&&!isNil(val)) {
+            if (!body.length) return val;
+            expr=[sym('begin'),...body]; matched=true; break;
+          }
+        }
+        if (!matched) return NIL;
+        continue;
+      }
+
+      if (sf==='and') {
+        if (expr.length===1) return true;
+        for (const e of expr.slice(1,-1)) {
+          const v=evaluate(e,env); if(v===false||isNil(v)) return false;
+        }
+        expr=expr[expr.length-1]; continue;
+      }
+
+      if (sf==='or') {
+        if (expr.length===1) return false;
+        for (const e of expr.slice(1,-1)) {
+          const v=evaluate(e,env); if(v!==false&&!isNil(v)) return v;
+        }
+        expr=expr[expr.length-1]; continue;
+      }
+
+      if (sf==='begin') {
+        if (expr.length===1) return NIL;
+        for (const e of expr.slice(1,-1)) evaluate(e,env);
+        expr=expr[expr.length-1]; continue;
+      }
+
+      if (sf==='when') {
+        if (evaluate(expr[1],env)!==false) {
+          for (const e of expr.slice(2,-1)) evaluate(e,env);
+          expr=expr[expr.length-1]; continue;
+        }
+        return NIL;
+      }
+
+      if (sf==='unless') {
+        if (evaluate(expr[1],env)===false) {
+          for (const e of expr.slice(2,-1)) evaluate(e,env);
+          expr=expr[expr.length-1]; continue;
+        }
+        return NIL;
+      }
+
+      if (sf==='define') {
+        const sig=expr[1];
+        if (Array.isArray(sig)) {
+          const fname=sig[0], params=sig.slice(1), body=expr.slice(2);
+          const fn=new Lambda(params,body,env,fname.s);
+          env.define(fname.s,fn); return fname;
+        } else {
+          const name=sig.s;
+          const val=expr.length>2?evaluate(expr[2],env):NIL;
+          if (val instanceof Lambda && val.name===null) val.name=name;
+          env.define(name,val); return sig;
+        }
+      }
+
+      if (sf==='set!') {
+        env.set(expr[1].s, evaluate(expr[2],env)); return NIL;
+      }
+
+      if (sf==='lambda') {
+        return new Lambda(expr[1], expr.slice(2), env);
+      }
+
+      if (sf==='let') {
+        // Named let: (let name ((v e)...) body...)
+        if (expr[1] instanceof Sym) {
+          const name=expr[1].s, bindings=expr[2], body=expr.slice(3);
+          const inner=new Env([],[],env);
+          const params=bindings.map(b=>b[0]);
+          const vals=bindings.map(b=>evaluate(b[1],env));
+          const fn=new Lambda(params,body,inner,name);
+          inner.define(name,fn);
+          const inner2=new Env(params,vals,inner);
+          for (const e of body.slice(0,-1)) evaluate(e,inner2);
+          expr=body[body.length-1]; env=inner2; continue;
+        }
+        const inner=new Env([],[],env);
+        for (const [n,ve] of expr[1]) inner.define(n.s, evaluate(ve,env));
+        for (const e of expr.slice(2,-1)) evaluate(e,inner);
+        expr=expr[expr.length-1]; env=inner; continue;
+      }
+
+      if (sf==='let*') {
+        const inner=new Env([],[],env);
+        for (const [n,ve] of expr[1]) inner.define(n.s, evaluate(ve,inner));
+        for (const e of expr.slice(2,-1)) evaluate(e,inner);
+        expr=expr[expr.length-1]; env=inner; continue;
+      }
+
+      if (sf==='letrec') {
+        const inner=new Env([],[],env);
+        for (const [n] of expr[1]) inner.define(n.s, NIL);
+        for (const [n,ve] of expr[1]) inner.define(n.s, evaluate(ve,inner));
+        for (const e of expr.slice(2,-1)) evaluate(e,inner);
+        expr=expr[expr.length-1]; env=inner; continue;
+      }
+    }
+
+    // ── Application ────────────────────────────────────
+    const fn=evaluate(head,env);
+    const args=expr.slice(1).map(a=>evaluate(a,env));
+
+    if (typeof fn==='function') return fn(...args);
+
+    if (fn instanceof Lambda) {
+      checkArity(fn,args);
+      const inner=new Env(fn.params,args,fn.env);
+      for (const e of fn.body.slice(0,-1)) evaluate(e,inner);
+      expr=fn.body[fn.body.length-1]; env=inner;
+      continue;  // TCO
+    }
+
+    throw new LispError(`Not a procedure: ${display(fn)}`);
+  }
+}
+
+function checkArity(fn, args) {
+  const p=fn.params;
+  if (p instanceof Sym) return; // variadic
+  const dotIdx=p.findIndex(x=>x instanceof Sym && x.s==='.');
+  if (dotIdx>=0) {
+    if (args.length<dotIdx) throw new LispError(`${fn.name||'lambda'}: expected ≥${dotIdx} args, got ${args.length}`);
+    return;
+  }
+  if (args.length!==p.length) throw new LispError(`${fn.name||'lambda'}: expected ${p.length} arg(s), got ${args.length}`);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  DISPLAY
+// ═══════════════════════════════════════════════════════════
+
+function display(val) {
+  if (val===true)  return '#t';
+  if (val===false) return '#f';
+  if (isNil(val))  return '()';
+  if (typeof val==='number') return Number.isInteger(val)?String(val):String(val);
+  if (val instanceof LispStr) return val.toString();
+  if (val instanceof Sym)     return val.s;
+  if (val instanceof Lambda)  return `#<lambda ${val.name||''}>`;
+  if (typeof val==='function')return `#<builtin ${val.lispName||val.name||'?'}>`;
+  if (Array.isArray(val))     return '('+val.map(display).join(' ')+')';
+  return String(val);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  BUILT-INS
+// ═══════════════════════════════════════════════════════════
+
+function numCheck(...args) {
+  for (const a of args)
+    if (typeof a!=='number') throw new LispError(`Expected number, got ${display(a)}`);
+}
+
+function callFn(fn, ...args) {
+  if (typeof fn==='function') return fn(...args);
+  if (fn instanceof Lambda) {
+    checkArity(fn,args);
+    const inner=new Env(fn.params,args,fn.env);
+    for (const e of fn.body.slice(0,-1)) evaluate(e,inner);
+    return evaluate(fn.body[fn.body.length-1], inner);
+  }
+  throw new LispError(`Not callable: ${display(fn)}`);
+}
+
+function deepEqual(a,b) {
+  if (Array.isArray(a)&&Array.isArray(b))
+    return a.length===b.length && a.every((x,i)=>deepEqual(x,b[i]));
+  if (a instanceof LispStr&&b instanceof LispStr) return a.s===b.s;
+  return a===b;
+}
+
+function makeGlobalEnv() {
+  const e = new Env();
+
+  // output capture
+  let _out = [];
+  e.define('display', (...a)=>{ _out.push(...a.map(x=>x instanceof LispStr?x.s:display(x))); return NIL; });
+  e.define('newline', ()=>{ _out.push('\n'); return NIL; });
+  e.define('write',   (x)=>{ _out.push(display(x)); return NIL; });
+  e.define('print',   (x)=>{ _out.push(display(x)+'\n'); return NIL; });
+  e.define('_get_output',   ()=>new LispStr(_out.join('')));
+  e.define('_clear_output', ()=>{ _out=[]; return NIL; });
+
+  // arithmetic
+  e.define('+', (...a)=>{ numCheck(...a); return a.reduce((s,x)=>s+x,0); });
+  e.define('*', (...a)=>{ numCheck(...a); return a.reduce((p,x)=>p*x,1); });
+  e.define('-', (...a)=>{ numCheck(...a); if(!a.length) throw new LispError('-: needs ≥1 arg'); return a.length===1?-a[0]:a[0]-a.slice(1).reduce((s,x)=>s+x,0); });
+  e.define('/', (...a)=>{ numCheck(...a); if(!a.length) throw new LispError('/: needs ≥1 arg');
+    if(a.length===1) return 1/a[0];
+    return a.slice(1).reduce((r,x)=>{ if(x===0) throw new LispError('Division by zero'); return r/x; }, a[0]); });
+  e.define('mod', (a,b)=>{ numCheck(a,b); if(b===0) throw new LispError('Modulo by zero'); return a%b; });
+  e.define('%',   (a,b)=>{ numCheck(a,b); if(b===0) throw new LispError('Modulo by zero'); return a%b; });
+  e.define('expt',     (a,b)=>{ numCheck(a,b); return a**b; });
+  e.define('quotient', (a,b)=>Math.trunc(a/b));
+  e.define('remainder',(a,b)=>a%b);
+  e.define('sqrt',  x=>{ numCheck(x); const r=Math.sqrt(x); return Number.isInteger(r)?r:r; });
+  e.define('floor',    x=>{ numCheck(x); return Math.floor(x); });
+  e.define('ceiling',  x=>{ numCheck(x); return Math.ceil(x); });
+  e.define('round',    x=>{ numCheck(x); return Math.round(x); });
+  e.define('truncate', x=>{ numCheck(x); return Math.trunc(x); });
+  e.define('abs',      x=>{ numCheck(x); return Math.abs(x); });
+  e.define('max',     (...a)=>{ numCheck(...a); return Math.max(...a); });
+  e.define('min',     (...a)=>{ numCheck(...a); return Math.min(...a); });
+  e.define('gcd',     (a,b)=>{ a=Math.abs(a)|0;b=Math.abs(b)|0; while(b){[a,b]=[b,a%b];} return a; });
+  e.define('lcm',     (a,b)=>{ const g=callFn(e.lookup('gcd'),a,b); return g===0?0:Math.abs(a*b)/g; });
+  e.define('sin',Math.sin); e.define('cos',Math.cos); e.define('tan',Math.tan);
+  e.define('asin',Math.asin); e.define('acos',Math.acos); e.define('atan',Math.atan);
+  e.define('exp',Math.exp); e.define('log',Math.log);
+  e.define('pi',Math.PI); e.define('e',Math.E);
+  e.define('exact->inexact', Number); e.define('inexact->exact', Math.trunc);
+  e.define('number->exact',  Math.trunc);
+
+  // comparisons
+  const mkCmp=op=>(...a)=>{ numCheck(...a); for(let i=0;i<a.length-1;i++) if(!op(a[i],a[i+1])) return false; return true; };
+  e.define('=',  mkCmp((a,b)=>a===b));
+  e.define('<',  mkCmp((a,b)=>a<b));
+  e.define('>',  mkCmp((a,b)=>a>b));
+  e.define('<=', mkCmp((a,b)=>a<=b));
+  e.define('>=', mkCmp((a,b)=>a>=b));
+  e.define('eq?',    (a,b)=>a===b||(a instanceof Sym&&b instanceof Sym&&a.s===b.s));
+  e.define('eqv?',   (a,b)=>a===b||(a instanceof Sym&&b instanceof Sym&&a.s===b.s));
+  e.define('equal?', deepEqual);
+  e.define('not',    x=>x===false);
+
+  // type predicates
+  e.define('number?',    x=>typeof x==='number');
+  e.define('integer?',   x=>typeof x==='number'&&Number.isInteger(x));
+  e.define('real?',      x=>typeof x==='number');
+  e.define('string?',    x=>x instanceof LispStr);
+  e.define('symbol?',    x=>x instanceof Sym);
+  e.define('pair?',      x=>Array.isArray(x)&&x.length>0);
+  e.define('null?',      x=>isNil(x));
+  e.define('list?',      x=>Array.isArray(x));
+  e.define('boolean?',   x=>x===true||x===false);
+  e.define('procedure?', x=>typeof x==='function'||x instanceof Lambda);
+
+  // lists
+  e.define('cons',   (a,b)=>{ if(Array.isArray(b)) return [a,...b]; throw new LispError(`cons: second arg must be a list`); });
+  e.define('car',    x=>{ if(Array.isArray(x)&&x.length>0) return x[0]; throw new LispError(`car: expected non-empty list`); });
+  e.define('cdr',    x=>{ if(Array.isArray(x)&&x.length>0) return x.slice(1); throw new LispError(`cdr: expected non-empty list`); });
+  e.define('list',   (...a)=>a);
+  e.define('length', x=>{ if(!Array.isArray(x)) throw new LispError('length: not a list'); return x.length; });
+  e.define('append', (...a)=>{ const r=[]; for(const x of a){ if(!Array.isArray(x)) throw new LispError('append: not a list'); r.push(...x); } return r; });
+  e.define('reverse',x=>{ if(!Array.isArray(x)) throw new LispError('reverse: not a list'); return [...x].reverse(); });
+  e.define('list-ref',  (lst,i)=>lst[i|0]);
+  e.define('list-tail', (lst,i)=>lst.slice(i|0));
+  e.define('last',      lst=>lst[lst.length-1]??NIL);
+  e.define('assoc', (k,lst)=>lst.find(p=>deepEqual(p[0],k))??false);
+  e.define('assq',  (k,lst)=>lst.find(p=>p[0]===k||(p[0] instanceof Sym&&k instanceof Sym&&p[0].s===k.s))??false);
+  e.define('member',(x,lst)=>{ const i=lst.findIndex(v=>deepEqual(v,x)); return i<0?false:lst.slice(i); });
+  e.define('memq',  (x,lst)=>{ const i=lst.findIndex(v=>v===x||(v instanceof Sym&&x instanceof Sym&&v.s===x.s)); return i<0?false:lst.slice(i); });
+  e.define('map',    (fn,...lsts)=>{ if(lsts.length===1) return lsts[0].map(x=>callFn(fn,x)); return Array.from({length:Math.min(...lsts.map(l=>l.length))},(_,i)=>callFn(fn,...lsts.map(l=>l[i]))); });
+  e.define('filter', (fn,lst)=>lst.filter(x=>{ const v=callFn(fn,x); return v!==false&&!isNil(v); }));
+  e.define('reduce', (fn,lst,...init)=>{ let acc,rest; if(init.length){acc=init[0];rest=lst;}else{if(!lst.length)throw new LispError('reduce: empty list');acc=lst[0];rest=lst.slice(1);} for(const x of rest) acc=callFn(fn,acc,x); return acc; });
+  e.define('fold-left',  (fn,init,lst)=>lst.reduce((a,x)=>callFn(fn,a,x),init));
+  e.define('fold-right', (fn,init,lst)=>[...lst].reduceRight((a,x)=>callFn(fn,x,a),init));
+  e.define('for-each',   (fn,lst)=>{ lst.forEach(x=>callFn(fn,x)); return NIL; });
+  e.define('apply', (fn,...args)=>{ const last=args[args.length-1]; if(!Array.isArray(last)) throw new LispError('apply: last arg must be list'); return callFn(fn,...args.slice(0,-1),...last); });
+
+  // strings
+  e.define('string',          (...cs)=>new LispStr(cs.map(c=>c.s).join('')));
+  e.define('string-append',   (...a)=>new LispStr(a.map(x=>x.s).join('')));
+  e.define('string-length',   s=>s.s.length);
+  e.define('substring',       (s,a,b)=>new LispStr(b===undefined?s.s.slice(a):s.s.slice(a,b)));
+  e.define('string-ref',      (s,i)=>new LispStr(s.s[i]));
+  e.define('string->list',    s=>[...s.s].map(c=>new LispStr(c)));
+  e.define('list->string',    lst=>new LispStr(lst.map(c=>c.s).join('')));
+  e.define('string-upcase',   s=>new LispStr(s.s.toUpperCase()));
+  e.define('string-downcase', s=>new LispStr(s.s.toLowerCase()));
+  e.define('string=?', (a,b)=>a.s===b.s);
+  e.define('string<?', (a,b)=>a.s<b.s);
+  e.define('string>?', (a,b)=>a.s>b.s);
+  e.define('number->string', n=>new LispStr(Number.isInteger(n)?String(n):String(n)));
+  e.define('string->number', s=>{ const n=Number(s.s); return isNaN(n)?false:n; });
+  e.define('symbol->string',  s=>new LispStr(s.s));
+  e.define('string->symbol',  s=>sym(s.s));
+  e.define('string-contains', (s,p)=>s.s.includes(p.s)?s.s.indexOf(p.s):false);
+
+  // constants
+  e.define('#t',   true);
+  e.define('#f',   false);
+  e.define('nil',  NIL);
+  e.define('else', true);
+  e.define('void', NIL);
+  e.define('error',(msg,...args)=>{ throw new LispError([msg,...args].map(x=>x instanceof LispStr?x.s:display(x)).join(' ')); });
+
+  return e;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  STANDARD LIBRARY  (Lisp source evaluated at startup)
+// ═══════════════════════════════════════════════════════════
+
+const STDLIB = `
+(define (not x)        (if x #f #t))
+(define (boolean? x)   (or (eq? x #t) (eq? x #f)))
+(define (zero? n)      (= n 0))
+(define (positive? n)  (> n 0))
+(define (negative? n)  (< n 0))
+(define (even? n)      (= (mod n 2) 0))
+(define (odd? n)       (not (even? n)))
+(define (square x)     (* x x))
+(define (cube x)       (* x x x))
+(define (cadr x)       (car (cdr x)))
+(define (caddr x)      (car (cdr (cdr x))))
+(define (cadddr x)     (car (cdr (cdr (cdr x)))))
+(define (caar x)       (car (car x)))
+(define (list? x)
+  (or (null? x) (and (pair? x) (list? (cdr x)))))
+(define (iota n)
+  (define (iter i acc)
+    (if (< i 0) acc (iter (- i 1) (cons i acc))))
+  (iter (- n 1) '()))
+(define (range start end)
+  (if (>= start end) '()
+      (cons start (range (+ start 1) end))))
+(define (fold-left f init lst)
+  (if (null? lst) init
+      (fold-left f (f init (car lst)) (cdr lst))))
+(define (fold-right f init lst)
+  (if (null? lst) init
+      (f (car lst) (fold-right f init (cdr lst)))))
+(define (any pred lst)
+  (cond ((null? lst) #f)
+        ((pred (car lst)) #t)
+        (else (any pred (cdr lst)))))
+(define (every pred lst)
+  (cond ((null? lst) #t)
+        ((not (pred (car lst))) #f)
+        (else (every pred (cdr lst)))))
+(define (sum lst)      (fold-left + 0 lst))
+(define (product lst)  (fold-left * 1 lst))
+(define (flatten lst)
+  (cond ((null? lst) '())
+        ((pair? (car lst))
+         (append (flatten (car lst)) (flatten (cdr lst))))
+        (else (cons (car lst) (flatten (cdr lst))))))
+(define (take lst n)
+  (if (or (null? lst) (= n 0)) '()
+      (cons (car lst) (take (cdr lst) (- n 1)))))
+(define (drop lst n)
+  (if (or (null? lst) (= n 0)) lst
+      (drop (cdr lst) (- n 1))))
+(define (compose f g) (lambda (x) (f (g x))))
+(define (curry f x)   (lambda args (apply f (cons x args))))
+(define (flip f)      (lambda (a b) (f b a)))
+(define (identity x)  x)
+(define (const x)     (lambda _ x))
+(define (sort lst less?)
+  (if (or (null? lst) (null? (cdr lst))) lst
+      (let ((pivot (car lst)) (rest (cdr lst)))
+        (append
+          (sort (filter (lambda (x) (less? x pivot)) rest) less?)
+          (list pivot)
+          (sort (filter (lambda (x) (not (less? x pivot))) rest) less?)))))
+(define (sort-numbers lst) (sort lst <))
+(define (make-counter)
+  (let ((n 0))
+    (lambda ()
+      (set! n (+ n 1))
+      n)))
+(define (make-adder n)  (lambda (x) (+ x n)))
+(define (zip-with f a b)
+  (if (or (null? a) (null? b)) '()
+      (cons (f (car a) (car b))
+            (zip-with f (cdr a) (cdr b)))))
+`;
+
+// ═══════════════════════════════════════════════════════════
+//  INTERPRETER ENTRY POINT
+// ═══════════════════════════════════════════════════════════
+
+let globalEnv;
+
+function initEnv() {
+  globalEnv = makeGlobalEnv();
+  try {
+    for (const ast of parse(STDLIB)) evaluate(ast, globalEnv);
+  } catch(ex) {
+    console.error('STDLIB error:', ex);
+  }
+}
+
+function runLisp(src) {
+  // Clear output buffer
+  try { evaluate(parse('(_clear_output)')[0], globalEnv); } catch(_){}
+
+  let printed='', result=NIL, error=null;
+  try {
+    const asts = parse(src.trim());
+    for (const ast of asts) result = evaluate(ast, globalEnv);
+    // Collect any display output
+    try {
+      const outVal = evaluate(parse('(_get_output)')[0], globalEnv);
+      if (outVal instanceof LispStr) printed = outVal.s;
+    } catch(_){}
+  } catch(ex) {
+    error = ex instanceof LispError ? ex.message : String(ex);
+  }
+  return { printed, result: error?null:result, error };
+}
+
+// ═══════════════════════════════════════════════════════════
+//  SYNTAX HIGHLIGHTER
+// ═══════════════════════════════════════════════════════════
+
+const KEYWORDS = new Set([
+  'define','lambda','if','cond','let','let*','letrec','begin','and','or',
+  'not','quote','set!','when','unless','do','else','case','delay','force'
+]);
+
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function highlight(src) {
+  let html='', i=0, n=src.length;
+  while (i<n) {
+    const c=src[i];
+    if (c===';') {
+      let j=i; while(j<n&&src[j]!=='\n') j++;
+      html+=`<span class="h-cmt">${esc(src.slice(i,j))}</span>`; i=j; continue;
+    }
+    if (c==='"') {
+      let j=i+1, s='"';
+      while(j<n&&src[j]!=='"'){if(src[j]==='\\')s+=src[j++];s+=src[j++];}
+      s+='"'; j++;
+      html+=`<span class="h-str">${esc(s)}</span>`; i=j; continue;
+    }
+    if (c==='('||c===')') {
+      html+=`<span class="h-paren">${c}</span>`; i++; continue;
+    }
+    if (c==="'"||c==='`'||c===',') {
+      html+=`<span class="h-paren">${esc(c)}</span>`; i++; continue;
+    }
+    if (' \t\r\n'.includes(c)) {
+      html += c==='\n'?'\n':' '; i++; continue;
+    }
+    // atom
+    let j=i;
+    while(j<n&&!' \t\r\n();"\',`'.includes(src[j])) j++;
+    const atom=src.slice(i,j); i=j;
+    if (/^-?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(atom)) {
+      html+=`<span class="h-num">${esc(atom)}</span>`;
+    } else if (atom==='#t'||atom==='#f'||atom==='#true'||atom==='#false') {
+      html+=`<span class="h-bool">${esc(atom)}</span>`;
+    } else if (KEYWORDS.has(atom)) {
+      html+=`<span class="h-kw">${esc(atom)}</span>`;
+    } else {
+      html+=`<span class="h-sym">${esc(atom)}</span>`;
+    }
+  }
+  return html;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  REPL UI
+// ═══════════════════════════════════════════════════════════
+
+const history=[], MAX_HIST=100;
+let histIdx=-1, inputSnap='';
+
+function addHistory(s) {
+  if (s && s !== history[history.length-1]) {
+    history.push(s); if (history.length>MAX_HIST) history.shift();
+  }
+  histIdx=-1;
+}
+
+function evalInput() {
+  const inp=document.getElementById('input');
+  const src=inp.value.trim();
+  if (!src) return;
+  addHistory(src);
+  inp.value=''; autoResize(inp);
+  appendEntry(src);
+}
+
+function appendEntry(src) {
+  const out=document.getElementById('output');
+  const wrap=document.createElement('div');
+  wrap.className='entry';
+
+  // Input line
+  const inDiv=document.createElement('div');
+  inDiv.className='entry-in';
+  inDiv.innerHTML=highlight(src);
+  wrap.appendChild(inDiv);
+
+  // Evaluate
+  const {printed,result,error}=runLisp(src);
+
+  if (printed) {
+    const pDiv=document.createElement('div');
+    pDiv.className='entry-out print';
+    pDiv.textContent=printed.replace(/\n$/,'');
+    wrap.appendChild(pDiv);
+  }
+
+  if (error) {
+    const eDiv=document.createElement('div');
+    eDiv.className='entry-out err';
+    eDiv.textContent='Error: '+error;
+    wrap.appendChild(eDiv);
+  } else if (!printed || !isNil(result)) {
+    const r=display(result);
+    if (r && r!=='()') {
+      const rDiv=document.createElement('div');
+      rDiv.className='entry-out ok';
+      rDiv.innerHTML='⇒ '+highlight(r);
+      wrap.appendChild(rDiv);
+    } else if (!printed) {
+      const rDiv=document.createElement('div');
+      rDiv.className='entry-empty';
+      rDiv.textContent='⇒ ()';
+      wrap.appendChild(rDiv);
+    }
+  }
+
+  out.appendChild(wrap);
+  out.scrollTop=out.scrollHeight;
+}
+
+function clearOutput() {
+  document.getElementById('output').innerHTML='';
+}
+
+function resetEnv() {
+  initEnv();
+  clearOutput();
+  const inp=document.getElementById('input');
+  inp.value=''; autoResize(inp);
+  appendInfo('Environment reset.');
+}
+
+function appendInfo(msg) {
+  const out=document.getElementById('output');
+  const d=document.createElement('div');
+  d.style.cssText='color:#475569;font-size:.75rem;padding:.15rem 0';
+  d.textContent=msg;
+  out.appendChild(d);
+  out.scrollTop=out.scrollHeight;
+}
+
+function autoResize(ta) {
+  ta.style.height='auto';
+  ta.style.height=Math.min(ta.scrollHeight,160)+'px';
+}
+
+// Keyboard handling
+document.getElementById('input').addEventListener('keydown', e=>{
+  const inp=e.target;
+  if (e.key==='Enter' && !e.shiftKey) {
+    e.preventDefault();
+    // Check paren balance — if unbalanced, insert newline instead
+    let d=0; for(const c of inp.value){ if(c==='(') d++; else if(c===')') d--; }
+    if (d>0) { inp.value+='\n'; autoResize(inp); return; }
+    evalInput();
+  }
+  if (e.key==='ArrowUp') {
+    e.preventDefault();
+    if (histIdx===-1) { inputSnap=inp.value; histIdx=history.length-1; }
+    else if (histIdx>0) histIdx--;
+    if (history[histIdx]!==undefined) inp.value=history[histIdx];
+    autoResize(inp);
+  }
+  if (e.key==='ArrowDown') {
+    e.preventDefault();
+    if (histIdx===-1) return;
+    histIdx++;
+    inp.value = histIdx>=history.length ? inputSnap : history[histIdx];
+    if (histIdx>=history.length) histIdx=-1;
+    autoResize(inp);
+  }
+  if (e.key==='l' && e.ctrlKey) { e.preventDefault(); clearOutput(); }
+});
+
+document.getElementById('input').addEventListener('input', e=>{
+  autoResize(e.target);
+});
+
+// ═══════════════════════════════════════════════════════════
+//  EXAMPLES
+// ═══════════════════════════════════════════════════════════
+
+const EXAMPLES = [
+  { title:'Factorial (recursive)',
+    code:`(define (fact n)
+  (if (= n 0) 1
+      (* n (fact (- n 1)))))
+
+(fact 12)` },
+
+  { title:'Fibonacci (recursive)',
+    code:`(define (fib n)
+  (if (< n 2) n
+      (+ (fib (- n 1))
+         (fib (- n 2)))))
+
+(map fib (iota 10))` },
+
+  { title:'Fibonacci (tail-recursive)',
+    code:`(define (fib-iter n a b)
+  (if (= n 0) a
+      (fib-iter (- n 1) b (+ a b))))
+
+(define (fib n) (fib-iter n 0 1))
+(fib 30)` },
+
+  { title:'Higher-order: map / filter / reduce',
+    code:`; Square every number
+(map (lambda (x) (* x x)) (iota 8))
+
+; Keep only even numbers
+(filter even? (range 1 11))
+
+; Sum a list
+(reduce + (iota 10))` },
+
+  { title:'Closure: counter factory',
+    code:`(define (make-counter)
+  (let ((n 0))
+    (lambda ()
+      (set! n (+ n 1))
+      n)))
+
+(define c1 (make-counter))
+(define c2 (make-counter))
+(c1) (c1) (c1)   ; independent state
+(c2)` },
+
+  { title:'Closure: adder factory',
+    code:`(define (make-adder n)
+  (lambda (x) (+ x n)))
+
+(define add10 (make-adder 10))
+(define add100 (make-adder 100))
+
+(map add10  (iota 5))
+(map add100 (iota 5))` },
+
+  { title:'Quicksort',
+    code:`(define (qsort lst)
+  (if (or (null? lst) (null? (cdr lst)))
+      lst
+      (let ((pivot (car lst))
+            (rest  (cdr lst)))
+        (append
+          (qsort (filter (lambda (x) (< x pivot)) rest))
+          (list pivot)
+          (qsort (filter (lambda (x) (>= x pivot)) rest))))))
+
+(qsort '(3 1 4 1 5 9 2 6 5 3 5))` },
+
+  { title:'Named let (loop)',
+    code:`; Sum 1..100 with named let loop
+(let loop ((i 1) (acc 0))
+  (if (> i 100)
+      acc
+      (loop (+ i 1) (+ acc i))))` },
+
+  { title:'List operations',
+    code:`; Building and processing lists
+(define nums (range 1 11))
+(define evens  (filter even?  nums))
+(define odds   (filter odd?   nums))
+(define squares (map square nums))
+
+(list "nums"    nums)
+(list "evens"   evens)
+(list "squares" squares)
+(sum squares)` },
+
+  { title:'Association list (dictionary)',
+    code:`(define db
+  '((alice 30 "engineer")
+    (bob   25 "designer")
+    (carol 35 "manager")))
+
+(define (lookup name)
+  (assq name db))
+
+(lookup 'alice)
+(lookup 'bob)
+(cadr (lookup 'carol))` },
+
+  { title:'Y combinator',
+    code:`; The Y combinator — recursion without define
+(define Y
+  (lambda (f)
+    ((lambda (x) (f (lambda (v) ((x x) v))))
+     (lambda (x) (f (lambda (v) ((x x) v)))))))
+
+(define fact
+  (Y (lambda (self)
+       (lambda (n)
+         (if (= n 0) 1 (* n (self (- n 1))))))))
+
+(fact 10)` },
+
+  { title:'Tail call: count to a million',
+    code:`; This works because of TCO — no stack overflow
+(define (count n limit)
+  (if (= n limit)
+      (string-append "Counted to " (number->string limit))
+      (count (+ n 1) limit)))
+
+(count 0 1000000)` },
+
+  { title:'String operations',
+    code:`(string-append "Hello" ", " "world" "!")
+(string-length "Wesley's Lisp")
+(substring "abcdef" 2 5)
+(string-upcase "hello")
+(number->string 42)
+(string->number "3.14")` },
+];
+
+function buildExamples() {
+  const panel=document.getElementById('panel-examples');
+  for (const ex of EXAMPLES) {
+    const btn=document.createElement('button');
+    btn.className='ex';
+    btn.innerHTML=`<div class="ex-title">${esc(ex.title)}</div><pre class="ex-code">${highlight(ex.code.slice(0,120)+(ex.code.length>120?'…':''))}</pre>`;
+    btn.onclick=()=>loadCode(ex.code);
+    panel.appendChild(btn);
+  }
+}
+
+function loadCode(code) {
+  const inp=document.getElementById('input');
+  inp.value=code;
+  autoResize(inp);
+  inp.focus();
+}
+
+function loadExample(name) {
+  const map={
+    factorial:EXAMPLES[0].code,
+    fib:EXAMPLES[1].code,
+    closure:EXAMPLES[4].code,
+  };
+  if (map[name]) loadCode(map[name]);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  REFERENCE
+// ═══════════════════════════════════════════════════════════
+
+const REFERENCE=[
+  { title:'Special forms', items:[
+    ['(define name val)','bind name in current scope'],
+    ['(define (f x) body)','define function f'],
+    ['(lambda (x) body)','anonymous function (closure)'],
+    ['(if test then else)','conditional — else optional'],
+    ['(cond (t e)…(else e))','multi-way conditional'],
+    ['(let ((x e)…) body)','parallel local bindings'],
+    ['(let* ((x e)…) body)','sequential local bindings'],
+    ['(letrec ((x e)…) body)','mutually recursive bindings'],
+    ['(begin e1 e2 … en)','sequence, return last'],
+    ['(and e…)','short-circuit AND'],
+    ['(or e…)','short-circuit OR'],
+    ['(set! x val)','mutate existing binding'],
+    ["(quote e)  'e",'return e unevaluated'],
+    ['(when test body…)','execute body if test is true'],
+  ]},
+  { title:'Arithmetic', items:[
+    ['(+ a b…)','sum'],
+    ['(- a b…)','difference (negate if 1 arg)'],
+    ['(* a b…)','product'],
+    ['(/ a b…)','quotient (error if zero)'],
+    ['(mod a b)','modulo'],
+    ['(expt b e)','bᵉ'],
+    ['(sqrt x)','square root'],
+    ['(abs x)','absolute value'],
+    ['(floor x) (ceiling x)','round toward ±∞'],
+    ['(round x)','round to nearest'],
+    ['(gcd a b)','greatest common divisor'],
+  ]},
+  { title:'Comparisons', items:[
+    ['(= a b…)','numeric equality'],
+    ['(< a b…)  (> a b…)','less/greater than'],
+    ['(<= a b…) (>= a b…)','less/greater or equal'],
+    ['(eq? a b)','identity equality'],
+    ['(equal? a b)','deep structural equality'],
+  ]},
+  { title:'Lists', items:[
+    ['(cons a lst)','prepend a to list'],
+    ['(car lst)','first element'],
+    ['(cdr lst)','all but first'],
+    ['(list a b…)','create list'],
+    ['(length lst)','number of elements'],
+    ['(append lst…)','concatenate lists'],
+    ['(reverse lst)','reverse list'],
+    ['(map f lst)','apply f to each element'],
+    ['(filter pred lst)','keep elements where pred is true'],
+    ['(reduce f lst)','fold list with f'],
+    ['(apply f arg… lst)','call f with args + lst'],
+    ['(assoc key alist)','lookup in association list'],
+    ['(member x lst)','find x in list'],
+  ]},
+  { title:'Predicates', items:[
+    ['(null? x)','is empty list?'],
+    ['(pair? x)','is non-empty list?'],
+    ['(number? x)','is number?'],
+    ['(symbol? x)','is symbol?'],
+    ['(string? x)','is string?'],
+    ['(boolean? x)','is #t or #f?'],
+    ['(procedure? x)','is callable?'],
+  ]},
+  { title:'Strings', items:[
+    ['(string-append s…)','concatenate strings'],
+    ['(string-length s)','length in chars'],
+    ['(substring s i j)','slice [i,j)'],
+    ['(string-upcase s)','uppercase'],
+    ['(number->string n)','number to string'],
+    ['(string->number s)','parse number'],
+    ['(symbol->string sym)','symbol name as string'],
+  ]},
+  { title:'Stdlib', items:[
+    ['(iota n)','list (0 1 … n-1)'],
+    ['(range a b)','list (a … b-1)'],
+    ['(even? n)  (odd? n)','parity checks'],
+    ['(zero? n)  (positive? n)','sign checks'],
+    ['(sum lst)  (product lst)','fold arithmetic'],
+    ['(square x)  (cube x)','x² and x³'],
+    ['(sort lst less?)','quicksort by comparator'],
+    ['(sort-numbers lst)','sort numerically'],
+    ['(flatten lst)','recursively flatten'],
+    ['(take lst n)  (drop lst n)','slice list'],
+    ['(compose f g)','function composition'],
+    ['(make-counter)','stateful counter closure'],
+    ['(make-adder n)','adder closure'],
+  ]},
+];
+
+function buildReference() {
+  const panel=document.getElementById('panel-reference');
+  for (const section of REFERENCE) {
+    const wrap=document.createElement('div');
+    wrap.className='ref-section';
+    const title=document.createElement('div');
+    title.className='ref-title'; title.textContent=section.title;
+    wrap.appendChild(title);
+    for (const [code,desc] of section.items) {
+      const row=document.createElement('div');
+      row.className='ref-item';
+      row.innerHTML=`<code>${esc(code)}</code><span>${esc(desc)}</span>`;
+      row.style.cursor='pointer';
+      row.onclick=()=>{ const inp=document.getElementById('input'); inp.value=code.replace(/…/,''); autoResize(inp); inp.focus(); };
+      wrap.appendChild(row);
+    }
+    panel.appendChild(wrap);
+  }
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i)=>{
+    const n=['examples','reference'][i];
+    t.classList.toggle('on',n===name);
+  });
+  document.querySelectorAll('.panel').forEach((p,i)=>{
+    const n=['panel-examples','panel-reference'][i];
+    p.classList.toggle('on',p.id===('panel-'+name));
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════
+
+initEnv();
+buildExamples();
+buildReference();
+document.getElementById('input').focus();
+
+// Run a quick welcome expression
+setTimeout(()=>{
+  appendEntry('(string-append "Welcome to Wesley\'s Lisp — " (number->string (+ 1 41)) " built-ins loaded")');
+},100);
+</script>
+</body>
+</html>
