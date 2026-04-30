@@ -1060,6 +1060,14 @@ const EXAMPLES = [
 (string-upcase "hello")
 (number->string 42)
 (string->number "3.14")` },
+
+  { title:'Randomness: shuffle / random-choice',
+    code:`(shuffle '(alpha beta gamma delta))
+(random-choice '(tea coffee raktajino))
+
+; quick weird poetry helper
+(define words '(red signal nebula station drift))
+(map (lambda (_) (random-choice words)) (iota 5))` },
 ];
 
 function buildExamples() {
@@ -1141,6 +1149,8 @@ const REFERENCE=[
     ['(map f lst)','apply f to each element'],
     ['(filter pred lst)','keep elements where pred is true'],
     ['(reduce f lst)','fold list with f'],
+    ['(shuffle lst)','return lst in random order'],
+    ['(random-choice lst)','pick one random element'],
     ['(apply f arg… lst)','call f with args + lst'],
     ['(assoc key alist)','lookup in association list'],
     ['(member x lst)','find x in list'],

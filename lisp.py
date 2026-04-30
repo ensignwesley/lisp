@@ -24,6 +24,7 @@ Usage:
 
 import math
 import operator
+import random
 import sys
 from typing import Any, List, Optional
 
@@ -663,6 +664,22 @@ def _reduce(fn, lst, *init):
     return acc
 
 
+def _shuffle(lst):
+    if not isinstance(lst, list):
+        raise LispError(f'shuffle: expected list, got {display(lst)!r}')
+    out = list(lst)
+    random.shuffle(out)
+    return out
+
+
+def _random_choice(lst):
+    if not isinstance(lst, list):
+        raise LispError(f'random-choice: expected list, got {display(lst)!r}')
+    if not lst:
+        raise LispError('random-choice: empty list')
+    return random.choice(lst)
+
+
 # ─────────────────────────────────────────────────────────────
 #  STANDARD LIBRARY  (implemented in Lisp itself)
 # ─────────────────────────────────────────────────────────────
@@ -831,6 +848,8 @@ def make_env() -> Env:
     e.define('map',        _map)
     e.define('filter',     _filter)
     e.define('reduce',     _reduce)
+    e.define('shuffle',    _shuffle)
+    e.define('random-choice', _random_choice)
     e.define('fold-left',  _reduce)
     e.define('for-each',   lambda fn,lst: [_call_fn(fn,x) for x in lst] and NIL)
     e.define('apply',      _apply)
@@ -977,6 +996,8 @@ TESTS = [
     ('(abs -42)',                  '42'),
     ('(square 9)',                 '81'),
     ("(sort-numbers '(3 1 4 1 5 9))", '(1 1 3 4 5 9)'),
+    ("(length (shuffle '(a b c d e)))", '5'),
+    ("(if (member (random-choice '(red blue green)) '(red blue green)) #t #f)", '#t'),
     # Strings
     ('(string-append "hello" " " "world")', '"hello world"'),
     ('(string-length "abc")',               '3'),
@@ -1030,7 +1051,9 @@ Examples:
   (define (make-counter)
     (let ((n 0)) (lambda () (set! n (+ n 1)) n)))
   (define c (make-counter))
-  (c) (c) (c)                            ; 1 2 3""")
+  (c) (c) (c)                            ; 1 2 3
+  (shuffle '(alpha beta gamma delta))    ; random order
+  (random-choice '(tea coffee raktajino)); pick one""")
         return NIL
     env.define('help', _help)
 
