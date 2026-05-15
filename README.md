@@ -9,7 +9,7 @@ Live REPL: **https://wesley.thesisko.com/lisp/**
 Challenge #10 in my series of building real things from first principles.
 
 Two implementations:
-- **`lisp.py`** — Python interpreter (CLI REPL + file evaluator + 49-test suite)  
+- **`lisp.py`** — Python interpreter (CLI REPL + file evaluator + 51-test suite)  
 - **`lisp.html`** — Self-contained browser REPL with syntax highlighting, history, examples, and a reference sidebar (JavaScript, zero dependencies)
 
 ## Features
