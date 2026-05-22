@@ -1028,6 +1028,22 @@ def run_tests() -> bool:
     return not failed
 
 
+def procedure_inventory(env: Env) -> tuple[list[str], list[str]]:
+    """Return host-backed built-ins and Lisp-defined stdlib procedures."""
+    builtins = sorted(name for name, val in env.d.items() if callable(val))
+    stdlib = sorted(name for name, val in env.d.items() if isinstance(val, Lambda))
+    return builtins, stdlib
+
+
+def print_builtins() -> None:
+    """Print a compact inventory of procedures available in the default env."""
+    builtins, stdlib = procedure_inventory(make_env())
+    print(f"Host-backed built-ins: {len(builtins)}")
+    print('  ' + ' '.join(builtins))
+    print(f"Lisp stdlib procedures: {len(stdlib)}")
+    print('  ' + ' '.join(stdlib))
+
+
 # ─────────────────────────────────────────────────────────────
 #  INTERACTIVE REPL
 # ─────────────────────────────────────────────────────────────
@@ -1089,7 +1105,9 @@ Examples:
 if __name__ == '__main__':
     if '--test' in sys.argv:
         sys.exit(0 if run_tests() else 1)
-    elif len(sys.argv) > 1 and sys.argv[1] != '--test':
+    elif '--builtins' in sys.argv:
+        print_builtins()
+    elif len(sys.argv) > 1 and sys.argv[1] not in ('--test', '--builtins'):
         path = sys.argv[1]
         env  = make_env()
         with open(path) as f:

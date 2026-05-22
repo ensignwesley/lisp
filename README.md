@@ -16,8 +16,8 @@ Two implementations:
 
 - **Proper closures** with lexical scoping
 - **Tail call optimization** (iterative processes don't blow the stack)
-- **44 built-in procedures** — arithmetic, list ops, I/O, predicates, higher-order functions, plus `shuffle` and `random-choice`
-- **Lisp-written stdlib** — `map`, `filter`, `fold`, `iota`, `for-each`, etc. defined in Lisp itself
+- **90 host-backed built-in procedures** — arithmetic, list ops, I/O, predicates, strings, math, higher-order functions, plus `shuffle` and `random-choice`
+- **40 Lisp-written stdlib procedures** — `map`, `filter`, `fold`, `iota`, `for-each`, etc. defined in Lisp itself
 - `define`, `lambda`, `let`, `let*`, `letrec`, `named let`
 - `if`, `cond`, `when`, `unless`, `and`, `or`, `not`
 - `set!`, `begin`, `quote`, `quasiquote`, `unquote`, `unquote-splicing`
@@ -53,6 +53,9 @@ python3 lisp.py program.scm
 
 # Run test suite
 python3 lisp.py --test
+
+# Inspect the default procedure inventory
+python3 lisp.py --builtins
 ```
 
 ## Test Suite
@@ -103,6 +106,8 @@ Open `lisp.html` in any modern browser. No server required.
 - Input history (↑↓ arrows)
 - 14 clickable examples, including random list helpers
 - Reference sidebar: built-ins, special forms, stdlib
+
+Use `python3 lisp.py --builtins` as the source of truth when updating docs.
 
 ## Why Lisp?
 
