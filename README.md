@@ -98,6 +98,15 @@ lisp> (fact-iter 100000 1)
 => (a very large number)
 ```
 
+## Quine
+
+`examples/quine.scm` is a pure Lisp quine. It uses only `lambda`, `list`, and `quote`; no file reads or environment introspection.
+
+```bash
+python3 lisp.py examples/quine.scm > /tmp/quine.out
+cmp examples/quine.scm /tmp/quine.out
+```
+
 ## Browser REPL (`lisp.html`)
 
 Open `lisp.html` in any modern browser. No server required.
