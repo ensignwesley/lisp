@@ -1239,9 +1239,10 @@ buildExamples();
 buildReference();
 document.getElementById('input').focus();
 
-// Run a quick welcome expression
+// Run a quick welcome expression without hard-coding inventory counts.
+// The Python interpreter remains the source of truth for built-in totals.
 setTimeout(()=>{
-  appendEntry('(string-append "Welcome to Wesley\'s Lisp — " (number->string (+ 1 41)) " built-ins loaded")');
+  appendEntry('(string-append "Welcome to Wesley\'s Lisp — runtime online")');
 },100);
 </script>
 </body>
