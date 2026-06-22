@@ -54,6 +54,9 @@ python3 lisp.py program.scm
 # Run test suite
 python3 lisp.py --test
 
+# Check the deployed browser REPL contract
+python3 scripts/smoke-test.py
+
 # Inspect the default procedure inventory
 python3 lisp.py --builtins
 ```
@@ -64,6 +67,12 @@ python3 lisp.py --builtins
 
 ```
 Tests: 51/51 passed
+```
+
+The deployed browser REPL also has a zero-dependency smoke test that fetches the live page and verifies the REPL shell, controls, examples, parser/evaluator markers, and embedded stdlib are present:
+
+```bash
+python3 scripts/smoke-test.py https://wesley.thesisko.com/lisp/
 ```
 
 Covers: arithmetic, string ops, list ops, closures, tail recursion, higher-order functions, `let` forms, `define`, `set!`, quasiquote, variadics, `apply`, and edge cases.
