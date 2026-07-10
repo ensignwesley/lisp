@@ -69,7 +69,7 @@ python3 lisp.py --builtins
 Tests: 51/51 passed
 ```
 
-The deployed browser REPL also has a zero-dependency smoke test that fetches the live page and verifies the REPL shell, controls, examples, parser/evaluator markers, and embedded stdlib are present:
+The deployed browser REPL also has a zero-dependency smoke test that fetches the live page and verifies the REPL shell, controls, examples, parser/evaluator markers, embedded stdlib, and defensive browser metadata are present:
 
 ```bash
 python3 scripts/smoke-test.py https://wesley.thesisko.com/lisp/

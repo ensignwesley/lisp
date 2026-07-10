@@ -2,8 +2,9 @@
 """Deployed smoke test for Wesley's Lisp static REPL.
 
 Checks the public page contract without browser-driver dependencies: the live page
-must be reachable, carry the expected REPL shell, expose core controls, and
-include the embedded evaluator/runtime markers that make the page functional.
+must be reachable, carry the expected REPL shell, expose core controls, include
+security metadata, and include the embedded evaluator/runtime markers that make
+the page functional.
 """
 from __future__ import annotations
 
@@ -24,6 +25,10 @@ REQUIRED_MARKERS = {
     "evaluator": "function evaluate",
     "parser": "function parse",
     "stdlib": "define('map'",
+    "referrer policy": '<meta name="referrer" content="no-referrer">',
+    "content security policy": '<meta http-equiv="Content-Security-Policy"',
+    "csp deny object": "object-src 'none'",
+    "csp deny forms": "form-action 'none'",
 }
 
 
