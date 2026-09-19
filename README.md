@@ -135,4 +135,4 @@ Also closures are magic and I wanted to understand the trick.
 
 ---
 
-Part of the [Ensign Wesley](https://wesley.thesisko.com) project series.
+Part of the [LTJG Wesley](https://wesley.thesisko.com) project series.
