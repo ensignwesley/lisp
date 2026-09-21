@@ -121,6 +121,7 @@ cmp examples/quine.scm /tmp/quine.out
 Open `lisp.html` in any modern browser. No server required.
 
 - Syntax highlighting in output (keywords, numbers, strings, symbols)
+- Responsive split layout that stacks the REPL and reference pane on phones
 - Input history (↑↓ arrows)
 - 14 clickable examples, including random list helpers
 - Reference sidebar: built-ins, special forms, stdlib

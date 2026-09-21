@@ -102,6 +102,25 @@ button{padding:.25rem .6rem;border:1px solid var(--border);border-radius:3px;
 button:hover{border-color:var(--accent);color:var(--accent)}
 #btn-run{border-color:var(--accent);color:var(--accent)}
 #btn-run:hover{background:var(--accent);color:var(--bg)}
+
+/* Keep the REPL usable on phones without shrinking both panes side by side. */
+@media (max-width:720px){
+  body{font-size:13px}
+  header{padding:.45rem .7rem;gap:.5rem;flex-wrap:wrap}
+  header .sub{display:none}
+  header nav{gap:.65rem}
+  #main{flex-direction:column}
+  #repl{flex:3 1 0;border-right:0;border-bottom:1px solid var(--border);min-height:0}
+  #sidebar{width:100%;height:auto;flex:2 1 0;min-height:10rem}
+  #output{padding:.6rem .7rem}
+  #input-area{padding:.5rem .6rem}
+  #hint{padding-left:1.6rem;line-height:1.35}
+  #toolbar{overflow-x:auto;padding:.35rem .6rem;scrollbar-width:thin}
+  .panel{padding:.55rem}
+  .ex-code{white-space:pre-wrap;overflow-wrap:anywhere}
+  .ref-item{align-items:flex-start}
+  .ref-item code{min-width:7.5rem;overflow-wrap:anywhere}
+}
 </style>
 </head>
 <body>

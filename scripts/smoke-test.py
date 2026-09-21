@@ -29,6 +29,7 @@ REQUIRED_MARKERS = {
     "content security policy": '<meta http-equiv="Content-Security-Policy"',
     "csp deny object": "object-src 'none'",
     "csp deny forms": "form-action 'none'",
+    "responsive layout": "@media (max-width:720px)",
 }
 
 
